@@ -120,7 +120,7 @@ PHASE 3 — CONFIGURE AUTHENTICATION TIERS
 ├─ 3.1  In Cloudflare Zero Trust Dashboard, enable "Cloudflare Access"
 ├─ 3.2  Create External Identity Provider → Google OAuth2
 ├─ 3.3  Build Access Groups:
-│       ├─ "Media Consumers" → no restriction (Komga, Navidrome direct)
+│       ├─ "Media Consumers" → Cloudflare Tunnel passthrough to LAN origin (Komga, Navidrome) — no Access restriction
 │       └─ "Admins" → Google OAuth2 challenge (IT Tools, BentoPDF)
 ├─ 3.4  Assign policies per public hostname
 └─ 3.5  Test: unauthenticated user hitting admin service → blocked with Google login prompt
@@ -216,8 +216,8 @@ Storage is handled by a **Synology NAS**, accessed exclusively through **Synolog
 
 | Service | URL Path | OAuth2 Required | Native Auth | Audience |
 |---|---|:---|:---|:---|
-| Komga | `manga.example.com` | ❌ | ✅ Basic Auth | Media consumers |
-| Navidrome | `music.example.com` | ❌ | ✅ Basic Auth | Media consumers |
+| **Komga** | `manga.example.com` | ❌ (Cloudflare Tunnel passthrough) | ✅ Basic Auth | Media consumers · **Hosted on LAN (Server B Docker)** |
+| **Navidrome** | `music.example.com` | ❌ (Cloudflare Tunnel passthrough) | ✅ Basic Auth | Media consumers · **Hosted on LAN (Server B Docker)** |
 | IT Tools | `tools.example.com` | ✅ Google | ❌ (OAuth replaces) | Admin only |
 | BentoPDF | `pdf.example.com` | ✅ Google | ❌ (OAuth replaces) | Admin only |
 
@@ -394,6 +394,7 @@ Current risk posture is **acceptable for a homelab serving personal/family use**
 | **Geographic filtering is surprisingly effective** | Post-implementation log review showed >90% of blocked traffic originated from non-EU IPs. This single rule eliminated the majority of scanning noise. |
 | **Redundancy matters** | During a Cloudflare edge incident in my region, Tailscale provided uninterrupted access. A single-path architecture would have left all services unreachable. |
 | **Split-auth reduces friction** | Media consumers (friends, family) were confused by OAuth2. Keeping direct native auth for Komga/Navidrome while enforcing OAuth2 for admin tools was the correct UX/security balance. |
+| **All public services are local-first** | Komga, Navidrome, IT Tools, and BentoPDF run in Docker on Server B inside the home LAN. Cloudflare is strictly an ingress tunnel + identity gate. The containers are fully portable and can be moved to a VPS or another host without architecture change. |
 
 ---
 
