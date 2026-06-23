@@ -29,7 +29,8 @@ Key security principles implemented:
 6. [Tailscale: Emergency Mesh VPN](#6-tailscale-emergency-mesh-vpn)
 7. [Cloudflare Zero Trust Rules](#7-cloudflare-zero-trust-rules)
 8. [Future Remediation: Lateral Movement & VLAN Isolation](#8-future-remediation-lateral-movement--vlan-isolation)
-9. [Lessons Learned](#9-lessons-learned)
+9. [Architecture Decisions: Vendor Lock-in & Trade-offs](#9-architecture-decisions-vendor-lock-in--trade-offs)
+10. [Lessons Learned](#10-lessons-learned)
 
 ---
 
@@ -82,6 +83,8 @@ Before remediation, the infrastructure had the following critical vulnerabilitie
 | **R3** | Global accessibility = global attack surface | Brute-force, bot scraping, credential stuffing from any IP worldwide | **High** |
 | **R4** | Single point of network access failure | If Cloudflare had an outage or tunnel broke, no remote access possible | **Medium** |
 | **R5** | Unrestricted scraper / bot access to public media services | Bandwidth abuse, content enumeration, potential DDoS | **Medium** |
+| **R6** | Cloudflare vendor lock-in | Tunnel, WAF, auth, and TLS are all single-provider; migration to self-hosted alternative (e.g., Headscale + FRP/Caddy + Authelia) is non-trivial | **Low** |
+| **R7** | NAS exposed through Synology QuickConnect / DDNS | While separated from the self-hosted stack, indirect exposure exists through vendor-managed relay | **Low** |
 
 ---
 
@@ -183,6 +186,29 @@ Internet User ──> Cloudflare Edge (TLS 1.3) ──> cloudflared daemon ─�
   service: http://bentopdf:80
   # Cloudflare Access applies here → Google OAuth2 required
 ```
+
+---
+
+
+### NAS Access (Synology QuickConnect)
+
+Storage is handled by a **Synology NAS**, accessed exclusively through **Synology QuickConnect** and the vendor-managed DDNS infrastructure. The NAS is **not exposed through the Cloudflare Tunnel** and runs on a **separate control plane** from the self-hosted Docker stack.
+
+| Property | NAS (Synology) | Self-Hosted Stack (Server B Docker) |
+|---|---|---|
+| Exposure path | QuickConnect relay + DDNS | Cloudflare Tunnel |
+| Auth model | Synology Account + 2FA | OAuth2 (Google) / Native Basic Auth |
+| TLS | Synology-managed (Let's Encrypt via DDNS) | Cloudflare edge (automatic) |
+| Network isolation | Separate from Server A/Server B VLAN | Would land in DMZ once VLANs deployed |
+| Management | DSM web UI, mobile apps | Portainer, SSH, Docker CLI |
+
+**Security consideration:** The NAS represents a **vendor-managed trust boundary**. While Synology's QuickConnect relay abstracts the home IP similarly to Cloudflare Tunnel, it introduces a secondary vendor lock-in point and a separate credential store (Synology Account vs. Google Identity).
+
+**Planned hardening if NAS integration with self-hosted stack increases:**
+- Mount NAS shares to Docker containers **only via Tailscale-internal connection** (WireGuard-encrypted, not exposed to flat LAN).
+- Enable Synology's built-in **Auto Block** (fail2ban equivalent) for DSM login.
+- Restrict QuickConnect to **specific country IPs** matching the Cloudflare geo-filter.
+- Evaluate moving backup targets to **BorgBase / rsync.net** for off-site, encrypted redundancy.
 
 ---
 

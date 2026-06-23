@@ -16,6 +16,7 @@
 | BentoPDF | Router port forwarded | **None** (file upload visible) | None | Critical |
 | Hermes (AI) | LAN only | Basic auth | None (local) | Low |
 | n8n | LAN only | Basic auth | None (local) | Low |
+| NAS (Synology) | QuickConnect/DDNS (vendor relay) | Synology Account + 2FA | QuickConnect geo-policy | Medium |
 
 **Compounding factors:**
 1. Home IP address leaked in DNS A records.
