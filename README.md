@@ -2,6 +2,8 @@
 
 > **Security-first self-hosted infrastructure** — Zero open ports, defense in depth, and principle of least privilege applied to a real-world homelab environment.
 
+[Live Diagram](https://alpefe.github.io/homelab-security-portfolio/) · [Remediation Playbook](remediation-playbook.md) · [OAuth2 Deep Dive](oauth2-deep-dive.md)
+
 ---
 
 ## Executive Summary
