@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Homelab Security — Network Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: #e2e8f0;
+    }
+    
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; color: #f8fafc; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; margin-left: 6px; vertical-align: middle; }
+    .badge.oauth { background: rgba(251, 113, 133, 0.2); color: #fb7185; border: 1px solid #fb7185; }
+    .badge.direct { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid #fbbf24; }
+    
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+      margin-bottom: 2rem;
+    }
+    
+    svg { width: 100%; min-width: 1050px; display: block; }
+    
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+    .card { background: rgba(15, 23, 42, 0.5); border-radius: 0.75rem; border: 1px solid #1e293b; padding: 1.25rem; }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+    .card h3 { font-size: 0.875rem; font-weight: 600; color: #f8fafc; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.5rem; padding-left: 0.5rem; border-left: 2px solid transparent; }
+    .card li:hover { border-left-color: #334155; }
+    
+    .footer { text-align: center; margin-top: 1.5rem; color: #475569; font-size: 0.75rem; }
+    
+    .security-note {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(136, 19, 55, 0.15);
+      border: 1px solid rgba(251, 113, 133, 0.3);
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      color: #fb7185;
+    }
+    .security-note strong { color: #fda4af; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>Homelab Security Architecture</h1>
+      </div>
+      <p class="subtitle">Zero inbound ports · Zero Trust edge · Defense in depth</p>
+    </div>
+
+    <!-- Main Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 740">
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrowhead-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+          </marker>
+          <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrowhead-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+          </marker>
+          <marker id="arrowhead-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- ======================== EXTERNAL USER ======================== -->
+        <rect x="40" y="40" width="120" height="70" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="100" y="65" fill="white" font-size="11" font-weight="600" text-anchor="middle">Internet User</text>
+        <text x="100" y="82" fill="#94a3b8" font-size="8" text-anchor="middle">Browser / Mobile</text>
+        <text x="100" y="96" fill="#64748b" font-size="8" text-anchor="middle">Anywhere in EU</text>
+
+        <!-- ======================== TAILSCALE VPN ======================== -->
+        <rect x="40" y="320" width="130" height="130" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="105" y="345" fill="white" font-size="11" font-weight="600" text-anchor="middle">Tailscale</text>
+        <text x="105" y="362" fill="#94a3b8" font-size="8" text-anchor="middle">WireGuard Mesh</text>
+        <text x="105" y="378" fill="#94a3b8" font-size="8" text-anchor="middle">ACL Grant-based</text>
+        <text x="105" y="394" fill="#fb7185" font-size="7" text-anchor="middle">Subnet Router</text>
+        <text x="105" y="410" fill="#fb7185" font-size="7" text-anchor="middle">MagicDNS</text>
+        <text x="105" y="432" fill="#fda4af" font-size="8" text-anchor="middle" font-weight="600">FALLBACK PATH</text>
+
+        <!-- ======================== CLOUDFLARE ZERO TRUST EDGE ======================== -->
+        <rect x="180" y="30" width="900" height="270" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="8,4"/>
+        <text x="195" y="50" fill="#fbbf24" font-size="11" font-weight="600">Cloudflare Zero Trust Edge — Public Ingress</text>
+
+        <!-- Security Rules Row -->
+        <rect x="200" y="65" width="120" height="55" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="260" y="88" fill="white" font-size="10" font-weight="600" text-anchor="middle">WAF + Bot Fight</text>
+        <text x="260" y="105" fill="#94a3b8" font-size="8" text-anchor="middle">Block scanners</text>
+
+        <rect x="340" y="65" width="120" height="55" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="400" y="88" fill="white" font-size="10" font-weight="600" text-anchor="middle">Geo Filter</text>
+        <text x="400" y="105" fill="#94a3b8" font-size="8" text-anchor="middle">EU IPs only</text>
+
+        <rect x="480" y="65" width="140" height="55" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="550" y="88" fill="white" font-size="10" font-weight="600" text-anchor="middle">OAuth2 IdP</text>
+        <text x="550" y="105" fill="#94a3b8" font-size="8" text-anchor="middle">Google Identity</text>
+
+        <rect x="640" y="65" width="120" height="55" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="700" y="88" fill="white" font-size="10" font-weight="600" text-anchor="middle">Rate Limiting</text>
+        <text x="700" y="105" fill="#94a3b8" font-size="8" text-anchor="middle">> 100 req / 10m</text>
+
+        <rect x="780" y="65" width="130" height="55" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="845" y="88" fill="white" font-size="10" font-weight="600" text-anchor="middle">TLS 1.3 Term.</text>
+        <text x="845" y="105" fill="#94a3b8" font-size="8" text-anchor="middle">Edge certificates</text>
+
+        <!-- Public Services (direct path) -->
+        <text x="340" y="180" fill="#fbbf24" font-size="9" font-weight="600" text-anchor="middle">Direct Public Services</text>
+
+        <rect x="230" y="195" width="130" height="65" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="295" y="220" fill="white" font-size="11" font-weight="600" text-anchor="middle">Komga</text>
+        <text x="295" y="238" fill="#94a3b8" font-size="8" text-anchor="middle">Manga / Comics</text>
+        <text x="295" y="252" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">Native Auth</text>
+
+        <rect x="380" y="195" width="130" height="65" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="445" y="220" fill="white" font-size="11" font-weight="600" text-anchor="middle">Navidrome</text>
+        <text x="445" y="238" fill="#94a3b8" font-size="8" text-anchor="middle">Music Streaming</text>
+        <text x="445" y="252" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">Native Auth</text>
+
+        <!-- Admin Services (OAuth protected path) -->
+        <text x="720" y="155" fill="#fb7185" font-size="9" font-weight="600" text-anchor="middle">Admin Tier — OAuth2 Enforced</text>
+
+        <rect x="620" y="175" width="120" height="30" rx="4" fill="rgba(136, 19, 55, 0.5)" stroke="#fb7185" stroke-width="1.2"/>
+        <text x="680" y="194" fill="white" font-size="9" font-weight="600" text-anchor="middle">Access Gate</text>
+
+        <rect x="560" y="220" width="130" height="65" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="625" y="245" fill="white" font-size="11" font-weight="600" text-anchor="middle">IT Tools</text>
+        <text x="625" y="263" fill="#94a3b8" font-size="8" text-anchor="middle">Sysadmin Utilities</text>
+        <text x="625" y="277" fill="#fb7185" font-size="8" font-weight="600" text-anchor="middle">OAuth2 Required</text>
+
+        <rect x="710" y="220" width="130" height="65" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="775" y="245" fill="white" font-size="11" font-weight="600" text-anchor="middle">BentoPDF</text>
+        <text x="775" y="263" fill="#94a3b8" font-size="8" text-anchor="middle">PDF Processing</text>
+        <text x="775" y="277" fill="#fb7185" font-size="8" font-weight="600" text-anchor="middle">OAuth2 Required</text>
+
+        <!-- ======================== HOME NETWORK ======================== -->
+        <rect x="180" y="310" width="900" height="410" rx="12" fill="rgba(251, 191, 36, 0.03)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4" opacity="0.7"/>
+        <text x="195" y="330" fill="#fbbf24" font-size="11" font-weight="600">Home Network — LAN Segment</text>
+
+        <!-- Server A -->
+        <rect x="240" y="360" width="190" height="130" rx="8" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="335" y="385" fill="white" font-size="12" font-weight="600" text-anchor="middle">Server A</text>
+        <text x="335" y="402" fill="#94a3b8" font-size="9" text-anchor="middle">Windows Host</text>
+
+        <!-- Hermes -->
+        <rect x="255" y="415" width="75" height="45" rx="4" fill="rgba(6, 78, 59, 0.3)" stroke="#34d399" stroke-width="1.2"/>
+        <text x="292" y="435" fill="white" font-size="9" font-weight="600" text-anchor="middle">Hermes</text>
+        <text x="292" y="450" fill="#94a3b8" font-size="7" text-anchor="middle">AI Agent</text>
+
+        <!-- n8n -->
+        <rect x="345" y="415" width="75" height="45" rx="4" fill="rgba(6, 78, 59, 0.3)" stroke="#34d399" stroke-width="1.2"/>
+        <text x="382" y="435" fill="white" font-size="9" font-weight="600" text-anchor="middle">n8n</text>
+        <text x="382" y="450" fill="#94a3b8" font-size="7" text-anchor="middle">Automation</text>
+
+        <text x="335" y="490" fill="#22d3ee" font-size="8" text-anchor="middle" font-weight="600">Automation & AI Layer</text>
+
+        <!-- Server B -->
+        <rect x="480" y="340" width="580" height="360" rx="8" fill="rgba(6, 78, 59, 0.2)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="770" y="365" fill="white" font-size="12" font-weight="600" text-anchor="middle">Server B — Proxmox VE / Debian</text>
+
+        <!-- Portainer -->
+        <rect x="500" y="385" width="130" height="55" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="565" y="410" fill="white" font-size="10" font-weight="600" text-anchor="middle">Portainer</text>
+        <text x="565" y="428" fill="#94a3b8" font-size="8" text-anchor="middle">Docker Management</text>
+
+        <!-- Docker Host Security Group -->
+        <rect x="640" y="370" width="400" height="310" rx="8" fill="transparent" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="655" y="388" fill="#a78bfa" font-size="8">Docker Host — Containerized Services</text>
+
+        <!-- Komga Container -->
+        <rect x="660" y="400" width="130" height="70" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="725" y="425" fill="white" font-size="10" font-weight="600" text-anchor="middle">Komga</text>
+        <text x="725" y="442" fill="#94a3b8" font-size="8" text-anchor="middle">Manga Library</text>
+        <text x="725" y="458" fill="#fbbf24" font-size="7" font-weight="600" text-anchor="middle">Native Auth</text>
+
+        <!-- Navidrome Container -->
+        <rect x="810" y="400" width="130" height="70" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="875" y="425" fill="white" font-size="10" font-weight="600" text-anchor="middle">Navidrome</text>
+        <text x="875" y="442" fill="#94a3b8" font-size="8" text-anchor="middle">Music Server</text>
+        <text x="875" y="458" fill="#fbbf24" font-size="7" font-weight="600" text-anchor="middle">Native Auth</text>
+
+        <!-- IT Tools Container -->
+        <rect x="660" y="500" width="130" height="80" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="725" y="525" fill="white" font-size="10" font-weight="600" text-anchor="middle">IT Tools</text>
+        <text x="725" y="543" fill="#94a3b8" font-size="8" text-anchor="middle">Dev / Sys Utils</text>
+        <text x="725" y="558" fill="#fb7185" font-size="7" font-weight="600" text-anchor="middle">OAuth2 via CF</text>
+        <text x="725" y="572" fill="#fb7185" font-size="7" text-anchor="middle">No native RBAC</text>
+
+        <!-- BentoPDF Container -->
+        <rect x="810" y="500" width="130" height="80" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="875" y="525" fill="white" font-size="10" font-weight="600" text-anchor="middle">BentoPDF</text>
+        <text x="875" y="543" fill="#94a3b8" font-size="8" text-anchor="middle">PDF Generator</text>
+        <text x="875" y="558" fill="#fb7185" font-size="7" font-weight="600" text-anchor="middle">OAuth2 via CF</text>
+        <text x="875" y="572" fill="#fb7185" font-size="7" text-anchor="middle">File upload vector</text>
+
+        <!-- Cloudflared daemon -->
+        <rect x="500" y="610" width="130" height="55" rx="6" fill="rgba(251, 191, 36, 0.2)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="565" y="632" fill="white" font-size="9" font-weight="600" text-anchor="middle">cloudflared</text>
+        <text x="565" y="650" fill="#94a3b8" font-size="7" text-anchor="middle">Tunnel Daemon</text>
+
+        <!-- ======================== ARROWS ======================== -->
+        
+        <!-- User -> Cloudflare -->
+        <line x1="160" y1="75" x2="250" y2="92" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+        <text x="200" y="80" fill="#22d3ee" font-size="8" text-anchor="middle">HTTPS</text>
+
+        <!-- Cloudflare -> Komga/Navidrome (direct public) -->
+        <line x1="295" y1="140" x2="295" y2="193" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <text x="325" y="168" fill="#fbbf24" font-size="7" text-anchor="middle">Direct</text>
+        <line x1="445" y1="140" x2="445" y2="193" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <text x="470" y="168" fill="#fbbf24" font-size="7" text-anchor="middle">Direct</text>
+
+        <!-- Cloudflare -> OAuth2 Gate -> Admin services -->
+        <line x1="550" y1="120" x2="680" y2="175" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowhead-rose)"/>
+        <text x="630" y="145" fill="#fb7185" font-size="7" text-anchor="middle">Auth challenge</text>
+
+        <line x1="680" y1="205" x2="625" y2="218" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+        <line x1="680" y1="205" x2="775" y2="218" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+
+        <!-- Cloudflare tunnel down to Server B -->
+        <path d="M 565 300 L 565 325 Q 565 335 575 335 L 590 335" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <text x="525" y="325" fill="#fbbf24" font-size="7" text-anchor="middle" transform="rotate(-90 525 325)">CF Tunnel</text>
+
+        <!-- Tailscale -> Server A -->
+        <line x1="170" y1="400" x2="240" y2="430" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowhead-rose)"/>
+        <text x="200" y="410" fill="#fb7185" font-size="7" text-anchor="middle">VPN</text>
+
+        <!-- Tailscale -> Server B -->
+        <line x1="170" y1="470" x2="480" y2="520" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowhead-rose)"/>
+        <text x="320" y="480" fill="#fb7185" font-size="7" text-anchor="middle">Direct LAN access</text>
+
+        <!-- Server B internal -->
+        <line x1="565" y1="440" x2="565" y2="450" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrowhead)"/>
+        <text x="585" y="450" fill="#94a3b8" font-size="7">Manages</text>
+
+        <!-- Cloudflared -> Docker proxy -->
+        <line x1="565" y1="610" x2="700" y2="585" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+        <line x1="565" y1="610" x2="850" y2="585" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+
+        <!-- Server A <-> Server B LAN -->
+        <line x1="430" y1="430" x2="480" y2="450" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="455" y="435" fill="#94a3b8" font-size="7" text-anchor="middle">LAN</text>
+
+        <!-- ======================== LEGEND ======================== -->
+        <text x="930" y="330" fill="white" font-size="10" font-weight="600">Legend</text>
+        
+        <rect x="930" y="342" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="952" y="350" fill="#94a3b8" font-size="8">Automation / AI</text>
+        
+        <rect x="930" y="358" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="952" y="366" fill="#94a3b8" font-size="8">Server / Host</text>
+        
+        <rect x="930" y="374" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="952" y="382" fill="#94a3b8" font-size="8">Public Service</text>
+        
+        <rect x="930" y="390" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="952" y="398" fill="#94a3b8" font-size="8">Security / Auth</text>
+
+        <line x1="930" y1="408" x2="946" y2="408" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="952" y="411" fill="#94a3b8" font-size="8">Auth / VPN Flow</text>
+        
+        <line x1="930" y1="420" x2="946" y2="420" stroke="#fbbf24" stroke-width="1"/>
+        <text x="952" y="423" fill="#94a3b8" font-size="8">Ingress Tunnel</text>
+      </svg>
+    </div>
+    
+    <div class="security-note">
+      <strong>Security Note:</strong> No inbound ports are open on the home router. All external traffic enters exclusively via Cloudflare Tunnel (outbound-initiated persistent connection). Router NAT table only sees egress. Verified via external nmap scan post-deployment.
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards" style="margin-top: 1.5rem;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>Threats Mitigated</h3>
+        </div>
+        <ul>
+          <li><strong>Direct port exposure eliminated</strong> — Zero open ports at router level remove entire classes of network-layer attacks (CVE exploitation, brute-force, port scanning).</li>
+          <li><strong>Credential stuffing reduced</strong> — OAuth2 via Google shifts credential risk to an IdP with MFA, brute-force detection, and breach monitoring.</li>
+          <li><strong>Geographic attack surface collapsed</strong> — EU-only filter blocked >90% of automated scanning traffic in the first week.</li>
+          <li><strong>Service enumeration prevented</strong> — Separate subdomains do not reveal IP or topology; origin is fully masked by Cloudflare.</li>
+        </ul>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>Zero Trust Principles Applied</h3>
+        </div>
+        <ul>
+          <li><strong>Never trust, always verify</strong> — Every request to admin tools is re-authenticated via OAuth2, regardless of previous access.</li>
+          <li><strong>Assume breach</strong> — Segmented hosts mean compromise of one service does not grant lateral movement to the other.</li>
+          <li><strong>Least privilege</strong> — Tailscale ACL grants per-device and per-port; media services have no write/admin capabilities.</li>
+          <li><strong>Verify explicitly</strong> — Cloudflare Access logs every identity decision; Tailscale audit log captures every network flow authorization.</li>
+        </ul>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>Access Control Matrix</h3>
+        </div>
+        <ul>
+          <li><strong>Komga / Navidrome</strong> — Public subdomains, native basic auth. Audience: media consumers (friends, family).</li>
+          <li><strong>IT Tools / BentoPDF</strong> — Public subdomains, OAuth2 enforced before packet reaches origin. Audience: admin only.</li>
+          <li><strong>Server A (Hermes, n8n)</strong> — No public exposure. Accessible only via Tailscale VPN from ACL-authorized devices.</li>
+          <li><strong>Portainer</strong> — No public exposure. Docker socket access restricted to Tailscale-authorized admin devices.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      Homelab Security Portfolio · Architected 2026 · Anonymized for public sharing
+    </div>
+  </div>
+</body>
+</html>
