@@ -28,7 +28,8 @@ Key security principles implemented:
 5. [Access Control Matrix](#5-access-control-matrix)
 6. [Tailscale: Emergency Mesh VPN](#6-tailscale-emergency-mesh-vpn)
 7. [Cloudflare Zero Trust Rules](#7-cloudflare-zero-trust-rules)
-8. [Lessons Learned](#8-lessons-learned)
+8. [Future Remediation: Lateral Movement & VLAN Isolation](#8-future-remediation-lateral-movement--vlan-isolation)
+9. [Lessons Learned](#9-lessons-learned)
 
 ---
 
@@ -279,7 +280,87 @@ Internet Request
 
 ---
 
-## 8. Lessons Learned
+## 8. Future Remediation: Lateral Movement & VLAN Isolation
+
+Current segmentation exists at the **host level** (Server A vs Server B — different OS, different physical/virtual machines), but several gaps remain that represent the next phase of hardening.
+
+### 8.1. Current Lateral Movement Risk
+
+| Compromise Vector | Impact if One Host Falls | Current Mitigation | Gap |
+|---|---|---|---|
+| **Server A (Windows) compromised** | Attacker can ARP-scan / ping sweep the entire LAN; SSH to Server B if keys cached; access Docker socket via Tailscale subnet router | Host-level separation; Tailscale ACLs (level 3 filtering) | Single flat LAN (192.168.1.0/24) — no network-level isolation |
+| **Server B (Proxmox/Docker) compromised** | Container escape → root on Debian → same LAN access as above; can ARP-poison, scan SMB on Windows host | Docker bridge isolation per container | No VLAN = containers and bare metal share L2 broadcast domain |
+| **Komga/Navidrome breached** | Low sensitivity (read-only media), but container can probe the internal Docker bridge and reach other containers | Docker network per service would help | Default bridge allows container-to-container communication |
+
+**Principle violated:** While **defense in depth** is applied at the perimeter, the **internal network is a single trust zone**. Compromise of any endpoint can move horizontally with only ARP/routing as barriers.
+
+### 8.2. VLAN Isolation Strategy (Planned)
+
+The target architecture moves from a flat LAN to segmented VLANs enforced by managed switch + router ACLs.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    PROPOSED VLAN SEGMENTATION                    │
+├──────────────┬──────────────┬────────────────┬───────────────────┤
+│ VLAN 10      │ VLAN 20      │ VLAN 30        │ VLAN 99           │
+│ MGMT         │ DMZ          │ INTERNAL       │ IOT / GUEST       │
+├──────────────┼──────────────┼────────────────┼───────────────────┤
+│ • Router     │ • Server B   │ • Server A     │ • Smart devices   │
+│ • Switch     │   (Proxmox)  │   (Windows)    │ • Guest network   │
+│ • Tailscale  │ • Komga      │ • Personal PCs │                   │
+│   subnet     │ • Navidrome  │ • Printers     │                   │
+│   router     │ • cloudflared│                │                   │
+│              │ • Portainer  │                │                   │
+│              │ • IT Tools   │                │                   │
+│              │ • BentoPDF   │                │                   │
+└──────────────┴──────────────┴────────────────┴───────────────────┘
+        │              │                │                  │
+        └──────────────┴────── Router ACLs ──────────────┘
+
+RULES:
+- VLAN 20 (DMZ) → Internet: ALLOW (cloudflared needs outbound HTTPS)
+- VLAN 20 (DMZ) → VLAN 10 (MGMT): DENY (except router/switch management)
+- VLAN 20 (DMZ) → VLAN 30 (INTERNAL): DENY by default; only allow
+  explicit flows (e.g., Server B needs Windows AD? No. So: DENY ALL)
+- VLAN 30 (INTERNAL) → VLAN 20 (DMZ): ALLOW (admin access Portainer)
+- VLAN 10 (MGMT) ← Anywhere: DENY except from VLAN 30 with admin device MAC
+- Inter-VLAN routing: logged and inspected; anomaly triggers alert
+```
+
+**Technology candidates:**
+- Managed switch with 802.1Q (e.g., TP-Link Omada / Unifi / MikroTik)
+- Router with ACL-capable firewall (OPNsense, pfSense, or vendor-native)
+- Alternative: Keep existing consumer router + separate VLAN-aware switch + ACLs on switch L3
+
+### 8.3. Lateral Movement Mitigations (Planned)
+
+| Control | Implementation | Status |
+|---|---|---|
+| **VLAN segmentation** | DMZ for public-facing services, MGMT for infra, INTERNAL for user devices | ⏳ Pending hardware upgrade |
+| **Docker macvlan** or **user-defined bridge per service** | Each container gets its own L2 bridge; no implicit container-to-container reachability | ⏳ Evaluate macvlan vs `docker network create` per app |
+| **Host-based firewall (Server B)** | `ufw` / `nftables`: default DROP all INPUT except established + Tailscale (UDP 41641) + cloudflared outbound (TCP 443) | 🚧 Partial: outbound-only considered sufficient today |
+| **Host-based firewall (Server A)** | Windows Defender Firewall: block inbound from LAN except Tailscale + RDP from specific internal IPs | ⏳ Needs policy refactor |
+| **Network micro-segmentation with Tailscale** | Replace flat subnet-route model with individual Tailscale IPs per service, ACL by IP+port not by tag only | 🚧 Already scoped: ACL granularity sufficient for now |
+| **ARP spoofing detection** | `arpwatch` / `arp-scan` cron on Server B; alert on new MAC/ARP entry | ⏳ Not deployed |
+| **Log aggregation + anomaly detection** | Forward Docker / host / router / Windows Event logs to central collector; baseline traffic, alert on spikes or new flows | ⏳ Requires SIEM or syslog server |
+
+### 8.4. Acceptable Risk Rationale (Today)
+
+Current risk posture is **acceptable for a homelab serving personal/family use** because:
+1. Perimeter is strong (zero inbound, OAuth2, geo-filter).
+2. No sensitive corporate/health/financial data at rest on these services.
+3. Mission-critical availability is not SLA-bound (downtime = inconvenience, not revenue loss).
+4. Recovery Time Objective (RTO) is hours (restore from container backup / Ansible), not minutes.
+
+**Trigger for VLAN implementation:** If any of the following occurs:
+- Addition of services handling PII or credentials of non-household users.
+- Hosting of financial/health data (would trigger GDPR compliance boundary).
+- Evidence of lateral movement in logs (e.g., unexpected SMB / SSH / ICMP between servers).
+- Acquisition of managed switch / router from work decommission.
+
+---
+
+## 9. Lessons Learned
 
 | Lesson | Detail |
 |---|---|

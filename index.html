@@ -80,7 +80,7 @@
 
     <!-- Main Diagram -->
     <div class="diagram-container">
-      <svg viewBox="0 0 1100 740">
+      <svg viewBox="0 0 1100 860">
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -303,6 +303,28 @@
         
         <line x1="930" y1="420" x2="946" y2="420" stroke="#fbbf24" stroke-width="1"/>
         <text x="952" y="423" fill="#94a3b8" font-size="8">Ingress Tunnel</text>
+        <!-- ======================== SECURITY NOTE: LAN FLATNESS WARNING ======================== -->
+        <rect x="520" y="730" width="500" height="80" rx="6" fill="rgba(136, 19, 55, 0.15)" stroke="#fb7185" stroke-width="1" stroke-dasharray="6,3"/>
+        <text x="540" y="750" fill="#fda4af" font-size="9" font-weight="600">RISK: Flat L2 Network (No VLAN Isolation)</text>
+        <text x="540" y="768" fill="#94a3b8" font-size="8">Current: hosts share single broadcast domain. Compromise of any node = horizontal scan possible.</text>
+        <text x="540" y="784" fill="#fbbf24" font-size="8" font-weight="600">Phase 7 Planned: VLAN 20 (DMZ) + VLAN 30 (INTERNAL) + Router ACL enforcement</text>
+        <text x="540" y="800" fill="#94a3b8" font-size="8">Pending: managed switch hardware (802.1Q). See README §8 for full remediation plan.</text>
+
+        <!-- ======================== FUTURE VLAN SEGMENTATION (Dashed / Planned) ======================== -->
+        <!-- Left dashed zone: MGMT + INTERNAL -->
+        <rect x="215" y="340" width="240" height="370" rx="8" fill="rgba(34, 211, 238, 0.05)" stroke="#22d3ee" stroke-width="1" stroke-dasharray="6,4" opacity="0.5"/>
+        <text x="225" y="355" fill="#22d3ee" font-size="8" opacity="0.7">PLANNED VLAN 30 (INTERNAL) + VLAN 10 (MGMT)</text>
+
+        <!-- Right dashed zone: DMZ -->
+        <rect x="470" y="340" width="610" height="370" rx="8" fill="rgba(6, 78, 59, 0.05)" stroke="#34d399" stroke-width="1" stroke-dasharray="6,4" opacity="0.5"/>
+        <text x="480" y="355" fill="#34d399" font-size="8" opacity="0.7">PLANNED VLAN 20 (DMZ) — ISOLATED FROM VLAN 30</text>
+
+        <!-- Planned inter-VLAN block arrow (crossed out) -->
+        <line x1="460" y1="530" x2="470" y2="530" stroke="#fb7185" stroke-width="2"/>
+        <path d="M 465 525 L 465 535 M 460 528 L 470 532 M 460 532 L 470 528" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="465" y="520" fill="#fb7185" font-size="7" text-anchor="middle">DENY by default</text>
+        <text x="465" y="547" fill="#fb7185" font-size="7" text-anchor="middle">except ACL admin flows</text>
+
       </svg>
     </div>
     

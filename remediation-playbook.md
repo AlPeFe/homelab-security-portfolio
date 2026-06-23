@@ -344,3 +344,66 @@ A suspicious `curl -A "Mozilla/..."` from a non-EU residential IP was observed a
 | Origin log noise | Thousands of scan hits/day | **Near-zero** (filtered at edge) |
 | Audit trail per request | None (direct logs only) | **Cloudflare Access logs + Tailscale flow logs** |
 
+---
+
+## Phase 7: Remaining Risks (Acknowledged)
+
+### 7.1. Lateral Movement Within the LAN
+
+**Residual risk:** All hosts currently share a flat L2/L3 network. A compromise of any node enables reconnaissance of the entire subnet.
+
+| Scenario | Impact | Why Not Fixed Yet |
+|---|---|---|
+| Server A (Windows) compromised → probes Server B | Attacker discovers Debian host, enumerates SSH / Docker / Tailscale | Flat LAN has no VLAN segmentation |
+| Container escape on Server B → host root | Attacker can egress back to Cloudflare tunnel, pivot to LAN, scan Server A SMB | Docker default bridge still allows container↔container on same bridge |
+| Tailscale subnet router exploited | ACL misconfiguration or stolen device key grants entire LAN access | Subnet route is broad (`192.168.1.0/24`); micro-segmentation would restrict to `/32` per target |
+
+**Planned remediations:**
+- **VLAN segmentation:** Separate DMZ (Server B + Docker), LAN (Server A + PCs), MGMT (router/switch admin). Inter-VLAN routing via ACLs, not implicit.
+- **Per-service Docker networks:** Replace default bridge with `docker network create [service]` per app, eliminating implicit container reachability.
+- **Host firewalls (`ufw` / Windows Defender):** Default-deny all incoming from LAN except explicitly required flows (Tailscale UDP, cloudflared TCP 443). Log and alert on denied attempts.
+
+### 7.2. VLAN Isolation (Hardware Dependency)
+
+Current infrastructure uses a consumer router without 802.1Q support. Full VLAN isolation requires hardware swap. The plan is scoped but pending procurement:
+
+```
+Target VLAN Topology:
+─────────────────────────────────────────────────────────────────────
+VLAN 10  MGMT     │ Router, Switch, Tailscale subnet router
+VLAN 20  DMZ      │ Server B, Docker host, all publicly tunneled services
+VLAN 30  INTERNAL │ Server A, personal devices, printers
+VLAN 99  IOT      │ Smart home devices, guest SSID
+─────────────────────────────────────────────────────────────────────
+ROUTER ACLS:
+  DMZ → INTERNAL : DENY  (except explicit admin flows)
+  DMZ → INTERNET : ALLOW  (cloudflared outbound)
+  INTERNAL → DMZ : ALLOW  (admin access Portainer)
+  ANY → MGMT : DENY  (except from VLAN 30 + admin device MAC whitelist)
+```
+
+**Hardware candidates:** MikroTik hEX / RB4011 (budget); Ubiquiti Dream Machine Pro (unified stack); self-build OPNsense box (full control).
+
+### 7.3. Detection Gaps
+
+| Gap | Impact | Current Status |
+|---|---|---|
+| No SIEM or centralized log collector | Cannot correlate events across hosts (Windows event + Docker logs + router syslog) | ⏳ Not deployed |
+| No ARP spoofing / rogue device detection | Attacker on LAN could poison ARP cache or introduce new MAC undetected | ⏳ Not deployed |
+| No anomaly-based IDS | Blind to internal lateral movement (e.g., unusual SSH from Server A to Server B at 3 AM) | ⏳ Not deployed |
+
+---
+
+## Phase 8: Trigger Conditions for Next Phase
+
+The remaining risks are **accepted for a personal/family homelab** under these conditions:
+1. No PII of non-household users at rest.
+2. No SLA or revenue impact from downtime.
+3. RTO is measured in hours (container restore), not minutes.
+
+**Automatic triggers to deploy VLAN + micro-segmentation:**
+- Any evidence of lateral movement in existing logs.
+- Addition of services storing credentials / financial / health data.
+- Acquisition of managed switch from decommission (zero-cost migration path).
+
+
