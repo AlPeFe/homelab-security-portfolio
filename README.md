@@ -65,10 +65,10 @@ The homelab is built on two logically separated nodes to reduce blast radius in 
 | **Operating System** | Windows 10 | Debian (Proxmox VE) |
 | **Primary Role** | Automation, AI orchestration | Media hosting, utility services |
 | **Containerization** | WSL2 + direct host processes | Docker via Portainer |
-| **Public Exposure** | None directly | Via Cloudflare Tunnel only |
+| **Public Exposure** | Tailscale VPN ingress | Cloudflare Tunnel ingress |
 | **Privilege Model** | Local admin + service accounts | Docker socket isolation |
 
-*Both servers live on the same LAN subnet but serve fundamentally different trust boundaries.*
+*Both servers live on the same LAN subnet. All application containers/processes are self-hosted locally. Internet access is reverse-proxy based: Tailscale VPN for Server A services (Hermes, n8n), Cloudflare Tunnel for Server B services (Komga, Navidrome, IT Tools, BentoPDF). The NAS is accessed through Synology QuickConnect relay.*
 
 ---
 
@@ -216,12 +216,14 @@ Storage is handled by a **Synology NAS**, accessed exclusively through **Synolog
 
 | Service | URL Path | OAuth2 Required | Native Auth | Audience |
 |---|---|:---|:---|:---|
-| **Komga** | `manga.example.com` | ❌ (Cloudflare Tunnel passthrough) | ✅ Basic Auth | Media consumers · **Hosted on LAN (Server B Docker)** |
-| **Navidrome** | `music.example.com` | ❌ (Cloudflare Tunnel passthrough) | ✅ Basic Auth | Media consumers · **Hosted on LAN (Server B Docker)** |
-| IT Tools | `tools.example.com` | ✅ Google | ❌ (OAuth replaces) | Admin only |
-| BentoPDF | `pdf.example.com` | ✅ Google | ❌ (OAuth replaces) | Admin only |
+| **Komga** | `manga.example.com` | ❌ (Cloudflare Tunnel passthrough to LAN) | ✅ Basic Auth | Media consumers · **LAN (Server B Docker)** |
+| **Navidrome** | `music.example.com` | ❌ (Cloudflare Tunnel passthrough to LAN) | ✅ Basic Auth | Media consumers · **LAN (Server B Docker)** |
+| **IT Tools** | `tools.example.com` | ✅ Google (Cloudflare Tunnel → LAN) | ❌ (OAuth replaces native) | Admin only · **LAN (Server B Docker)** |
+| **BentoPDF** | `pdf.example.com` | ✅ Google (Cloudflare Tunnel → LAN) | ❌ (OAuth replaces native) | Admin only · **LAN (Server B Docker)** |
+| **Hermes** | `hermes.lan` (Tailscale-internal) | ✅ Tailscale ACL + local auth | ✅ Basic Auth (local) | Admin only · **LAN (Server A WSL2)** |
+| **n8n** | `n8n.lan` (Tailscale-internal) | ✅ Tailscale ACL + local auth | ✅ Basic Auth (local) | Admin only · **LAN (Server A WSL2)** |
 
-*The split-auth model reduces cognitive overhead for users (no unnecessary login) while enforcing strong identity verification for anything that can modify state or process files.*
+*All application containers/processes run on physical hardware inside the home LAN. Internet ingress is always reverse-proxy/tunnel-based. The split-auth model (OAuth2 for admin tools, native auth for media) reduces cognitive overhead while enforcing strong identity verification for anything that can modify state or process files.*
 
 ---
 

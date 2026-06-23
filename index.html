@@ -386,10 +386,9 @@
           <h3>Access Control Matrix</h3>
         </div>
         <ul>
-          <li><strong>Komga / Navidrome</strong> — Public subdomains, native basic auth. Audience: media consumers (friends, family).</li>
-          <li><strong>IT Tools / BentoPDF</strong> — Public subdomains, OAuth2 enforced before packet reaches origin. Audience: admin only.</li>
-          <li><strong>Server A (Hermes, n8n)</strong> — No public exposure. Accessible only via Tailscale VPN from ACL-authorized devices.</li>
-          <li><strong>Portainer</strong> — No public exposure. Docker socket access restricted to Tailscale-authorized admin devices.</li>
+          <li><strong>Komga / Navidrome / IT Tools / BentoPDF</strong> — Public subdomains via Cloudflare Tunnel, all running on LAN (Server B Docker). Komga/Navidrome use native basic auth; IT Tools/BentoPDF use OAuth2.</li>
+          <li><strong>Hermes / n8n</strong> — LAN-only (Server A WSL2). No public internet exposure. Accessible only via Tailscale VPN from ACL-authorized devices.</li>
+          <li><strong>Portainer</strong> — LAN-only (Server B Docker). No public internet exposure. Accessible via Tailscale VPN or local LAN only.</li>
         </ul>
       </div>
     </div>

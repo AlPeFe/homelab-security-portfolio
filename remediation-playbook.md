@@ -14,9 +14,9 @@
 | Navidrome | Router port forwarded | Basic auth | None | Critical |
 | IT Tools | Router port forwarded | **None** (public access if URL known) | None | Critical |
 | BentoPDF | Router port forwarded | **None** (file upload visible) | None | Critical |
-| Hermes (AI) | LAN only | Basic auth | None (local) | Low |
-| n8n | LAN only | Basic auth | None (local) | Low |
-| NAS (Synology) | QuickConnect/DDNS (vendor relay) | Synology Account + 2FA | QuickConnect geo-policy | Medium |
+| Hermes (AI) | LAN (Tailscale VPN ingress) | Basic auth | Tailscale ACL | Low |
+| n8n | LAN (Tailscale VPN ingress) | Basic auth | Tailscale ACL | Low |
+| NAS (Synology) | LAN (QuickConnect relay) | Synology Account + 2FA | QuickConnect geo-policy | Medium |
 
 **Compounding factors:**
 1. Home IP address leaked in DNS A records.
